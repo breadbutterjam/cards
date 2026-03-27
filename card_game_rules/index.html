@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Select Phase</title>
+    <!-- <script type="text/javascript" src="src.js"></script> -->
+     <style>
+        body{
+            display: flex;
+            flex-direction: column;
+            margin: 0;
+            height: 100vh;
+            background-color: lightblue;
+            align-items: center;
+            justify-content: center;
+        }
+        #selectedCard{
+            height: 100vh;
+            width: 100vw;
+            border: 100vh;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+        }
+
+        .hdn{
+            display: none;
+        }
+
+        #closeBtn{
+            position: absolute;
+            top: 0px;
+            right: 0px;
+            padding: 10px 15px;
+            background-color: #ffffff;
+            color: black;
+            border: 1px solid;
+            cursor: pointer;
+            border-radius: 100px;
+        }
+     </style>
+     <script type="text/javascript">
+        const cards = [];
+        const numCard = 12;
+        function init(){
+            for (let i = 0; i < numCard; i++) {
+                cards.push(i + 1); // Add card numbers to the array
+            }
+        }
+
+        function closeCard() {
+            document.getElementById('selectedCard').classList.add('hdn');
+            document.getElementById('closeBtn').classList.add('hdn');
+            document.getElementById('selectBtn').classList.remove('hdn');
+        }
+
+        function pickRandomCard() {
+            
+            const randomIndex = Math.floor(Math.random() * cards.length);
+            const selectedCard = cards[randomIndex];
+            document.getElementById('selectedCard').style.backgroundImage = "url('img/" + selectedCard + ".png')";
+            document.getElementById('selectedCard').classList.remove('hdn');
+            document.getElementById('closeBtn').classList.remove('hdn');
+            
+            document.getElementById('selectBtn').classList.add('hdn');
+            // alert('You picked: ' + selectedCard);
+        }
+        </script>
+</head>
+<body onload="init()">
+    <button id="selectBtn" onclick="pickRandomCard()">Pick Random Card</button>
+    <div id="selectedCard" class="hdn"></div>
+    <div id="closeBtn" onclick="closeCard()" class="hdn">x</div>
+
+</body>
+</html>
