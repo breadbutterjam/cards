@@ -121,8 +121,8 @@
   .toggle { position: relative; width: 42px; height: 23px; cursor: pointer; flex-shrink: 0; }
   .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
   .toggle-track { position: absolute; inset: 0; border-radius: 12px; background: #dde6ef; transition: background 0.2s; }
-  .toggle-track.t-cyan { } .toggle input:checked ~ .toggle-track.t-cyan { background: var(--accent); }
-  .toggle-track.t-purple { } .toggle input:checked ~ .toggle-track.t-purple { background: var(--purple); }
+  /*.toggle-track.t-cyan { }*/ .toggle input:checked ~ .toggle-track.t-cyan { background: var(--accent); }
+  /*.toggle-track.t-purple { }*/ .toggle input:checked ~ .toggle-track.t-purple { background: var(--purple); }
   .toggle-thumb { position: absolute; top: 2.5px; left: 2.5px; width: 18px; height: 18px; border-radius: 50%; background: white; box-shadow: 0 1px 4px rgba(0,0,0,0.18); transition: transform 0.2s; }
   .toggle input:checked ~ .toggle-thumb { transform: translateX(19px); }
 
