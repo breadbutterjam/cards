@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Super 11</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --felt: #1b4332;
+    --felt-dark: #122c22;
+    --felt-light: #2d6a4f;
+    --cream: #fdf6e3;
+    --ink: #2c2140;
+    --gold: #c9a84c;
+    --gold-light: #e8c96d;
+    --red: #8b1a1a;
+    --red-light: #c0392b;
+    --card-shadow: 0 12px 48px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.3);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    background: var(--felt);
+    min-height: 100vh;
+    min-height: 100dvh;
+    font-family: 'Crimson Pro', Georgia, serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1rem 1rem 2rem;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(45,106,79,0.6) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(18,44,34,0.8) 0%, transparent 60%),
+      repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(0,0,0,0.03) 8px, rgba(0,0,0,0.03) 9px);
+    gap: 1rem;
+    overflow-x: hidden;
+  }
+
+  /* ─── Header ─── */
+  .header {
+    text-align: center;
+    padding-top: 0.5rem;
+  }
+  .header h1 {
+    font-family: 'Playfair Display', Georgia, serif;
+    color: var(--gold);
+    font-size: 1.1rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
+
+  /* ─── Game dots ─── */
+  .game-dots {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: wrap;
+    max-width: 320px;
+  }
+  .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.2);
+    cursor: pointer;
+    transition: background 0.2s, transform 0.15s;
+  }
+  .dot.active {
+    background: var(--gold);
+    border-color: var(--gold-light);
+    transform: scale(1.35);
+  }
+
+  /* ─── Card ─── */
+  .card-wrap {
+    width: 100%;
+    max-width: 400px;
+    perspective: 1000px;
+  }
+
+  .card {
+    background: var(--cream);
+    border-radius: 16px;
+    box-shadow: var(--card-shadow);
+    padding: 1.5rem 1.25rem 1.25rem;
+    min-height: 300px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(201,168,76,0.3);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+  }
+
+  .card.flipping {
+    opacity: 0;
+    transform: rotateY(15deg) scale(0.97);
+  }
+
+  /* Corner decorations */
+  .card::before, .card::after {
+    content: '';
+    position: absolute;
+    width: 32px; height: 32px;
+    border-color: rgba(44,33,64,0.18);
+    border-style: solid;
+  }
+  .card::before {
+    top: 10px; left: 10px;
+    border-width: 2px 0 0 2px;
+    border-radius: 4px 0 0 0;
+  }
+  .card::after {
+    bottom: 10px; right: 10px;
+    border-width: 0 2px 2px 0;
+    border-radius: 0 0 4px 0;
+  }
+
+  .card-inner {
+    text-align: center;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0 0;
+    width: 100%;
+  }
+
+  .game-label {
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--ink);
+    opacity: 0.45;
+    font-weight: 600;
+  }
+
+  .variant-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #fff;
+    background: var(--red);
+    padding: 0.2rem 0.65rem;
+    border-radius: 20px;
+    font-weight: 600;
+    font-family: 'Crimson Pro', serif;
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.3s, transform 0.3s;
+    min-height: 1.4em; /* reserve space even when empty */
+  }
+  .variant-badge.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ── Rule text – now Crimson Pro throughout ── */
+  .rule-primary {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: clamp(2rem, 10vw, 3rem);
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.05;
+    text-align: center;
+    letter-spacing: 0.01em;
+    text-shadow: 1px 2px 0 rgba(44,33,64,0.1);
+  }
+
+  .rule-connector {
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.85rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--ink);
+    opacity: 0.5;
+    font-style: italic;
+  }
+
+  .rule-secondary {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: clamp(2rem, 10vw, 3rem);
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.05;
+    text-align: center;
+    letter-spacing: 0.01em;
+    text-shadow: 1px 2px 0 rgba(44,33,64,0.1);
+  }
+
+  .rule-solo {
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: clamp(2.2rem, 11vw, 3.4rem);
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.05;
+    text-align: center;
+    letter-spacing: 0.01em;
+    text-shadow: 1px 2px 0 rgba(44,33,64,0.1);
+  }
+
+  .rule-note {
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.8rem;
+    color: var(--ink);
+    opacity: 0.5;
+    font-style: italic;
+    text-align: center;
+    line-height: 1.3;
+  }
+
+  /* ── Helper boxes ── */
+  .helper-section {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.15rem;
+  }
+
+  .helper-group {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .helper-boxes {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .hbox {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--ink);
+    background: rgba(44,33,64,0.07);
+    border: 1.5px solid rgba(44,33,64,0.18);
+  }
+
+  .hbox.run-box {
+    background: rgba(44,33,64,0.06);
+  }
+  .hbox.set-box {
+    background: rgba(139,26,26,0.07);
+    border-color: rgba(139,26,26,0.2);
+    color: var(--red);
+  }
+  /* Ace boxes — gold */
+  .hbox.ace-box {
+    background: rgba(201,168,76,0.15);
+    border-color: rgba(201,168,76,0.45);
+    color: #8a6a1a;
+    font-weight: 700;
+  }
+  /* Gap separator between sets */
+  .hbox.gap-box {
+    background: transparent;
+    border-color: transparent;
+    color: rgba(44,33,64,0.25);
+    font-size: 0.9rem;
+    width: 10px;
+  }
+
+  /* Suit accents */
+  .suit-accent {
+    position: absolute;
+    font-size: 1rem;
+    opacity: 0.08;
+  }
+  .suit-accent.tl { top: 14px; left: 16px; }
+  .suit-accent.tr { top: 14px; right: 16px; }
+  .suit-accent.bl { bottom: 14px; left: 16px; transform: rotate(180deg); }
+  .suit-accent.br { bottom: 14px; right: 16px; transform: rotate(180deg); }
+
+  /* Variant stripe */
+  .variant-stripe {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--red), var(--red-light));
+    border-radius: 16px 16px 0 0;
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .variant-stripe.visible {
+    transform: scaleX(1);
+  }
+
+  /* ─── Nav row ─── */
+  .nav-row {
+    display: flex;
+    width: 100%;
+    max-width: 400px;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .nav-btn {
+    flex: 1;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.75);
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.9rem;
+    letter-spacing: 0.06em;
+    padding: 0.65rem 0.75rem;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.15s, opacity 0.15s;
+    touch-action: manipulation;
+  }
+  .nav-btn:hover:not(:disabled) { background: rgba(255,255,255,0.13); }
+  .nav-btn:active:not(:disabled) { background: rgba(255,255,255,0.18); transform: scale(0.98); }
+  .nav-btn:disabled { opacity: 0.2; cursor: not-allowed; }
+
+  .game-counter {
+    font-family: 'Playfair Display', serif;
+    color: var(--gold);
+    font-size: 0.95rem;
+    min-width: 60px;
+    text-align: center;
+    letter-spacing: 0.05em;
+    opacity: 0.85;
+    flex-shrink: 0;
+  }
+
+  /* ─── Action row ─── */
+  .action-row {
+    display: flex;
+    width: 100%;
+    max-width: 400px;
+    gap: 0.75rem;
+  }
+
+  .action-btn {
+    flex: 1;
+    border: none;
+    font-family: 'Crimson Pro', serif;
+    font-size: 0.9rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.75rem 0.5rem;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: filter 0.15s, transform 0.1s;
+    touch-action: manipulation;
+  }
+  .action-btn:active { transform: scale(0.97); }
+
+  .shuffle-btn {
+    background: var(--red);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(139,26,26,0.4);
+  }
+  .shuffle-btn:hover { filter: brightness(1.12); }
+
+  .reset-btn {
+    background: rgba(201,168,76,0.12);
+    color: var(--gold-light);
+    border: 1px solid rgba(201,168,76,0.25);
+  }
+  .reset-btn:hover { filter: brightness(1.15); }
+  .reset-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>Super 11</h1>
+</div>
+
+<div class="game-dots" id="gameDots"></div>
+
+<div class="card-wrap">
+  <div class="card" id="card">
+    <div class="variant-stripe" id="variantStripe"></div>
+    <span class="suit-accent tl" id="suitTL">♠</span>
+    <span class="suit-accent tr" id="suitTR">♥</span>
+    <span class="suit-accent bl" id="suitBL">♠</span>
+    <span class="suit-accent br" id="suitBR">♥</span>
+
+    <div class="card-inner" id="cardInner">
+      <!-- populated by JS -->
+    </div>
+  </div>
+</div>
+
+<div class="nav-row">
+  <button class="nav-btn" id="prevBtn" onclick="changeGame(-1)">← Prev</button>
+  <div class="game-counter" id="gameCounter">1 / 10</div>
+  <button class="nav-btn" id="nextBtn" onclick="changeGame(1)">Next →</button>
+</div>
+
+<div class="action-row">
+  <button class="action-btn shuffle-btn" onclick="shuffleVariant()">🔀 Shuffle</button>
+  <button class="action-btn reset-btn" id="resetBtn" onclick="resetToStandard()">↺ Standard</button>
+</div>
+
+<script>
+  // ── Game data ──
+  // parts: array of rule strings. Each string is parsed for helpers.
+  // Recognised patterns: "Run of N", "Set of N"
+  const GAMES = [
+    {
+      name: "Game 1",
+      suits: ["♠","♥","♠","♥"],
+      variants: [
+        { label: null,        parts: ["2 Aces", "Trio"] },
+        { label: "Variant A", parts: ["2 Aces", "3 of a kind"] },
+        { label: "Variant B", parts: ["2 Aces", "Run of 3"] },
+        { label: "Variant C", parts: ["Run of 5"] },
+        { label: "Variant D", parts: ["Set of 5"] },
+        { label: "Variant E", parts: ["Run of 3", "1 pair"] }
+      ]
+    },
+    {
+      name: "Game 2",
+      suits: ["♦","♣","♦","♣"],
+      variants: [
+        { label: null,        parts: ["2 Sets of 3"] },
+        { label: "Variant A", parts: ["Set of 4", "Set of 3"] },
+        { label: "Variant B", parts: ["Set of 3", "Set of 4"] },
+        { label: "Variant C", parts: ["Set of 3", "Set of 3"], note: "No wilds allowed" },
+        { label: "Variant D", parts: ["Set of 3", "Set of 3"], note: "Pure sets only" },
+      ]
+    },
+    {
+      name: "Game 3",
+      suits: ["♠","♦","♠","♦"],
+      variants: [
+        { label: null,        parts: ["Run of 3", "3 of a kind"] },
+        { label: "Variant A", parts: ["Run of 5", "Set of 3"] },
+        { label: "Variant B", parts: ["Run of 4", "Set of 4"] },
+        { label: "Variant C", parts: ["Run of 4", "Set of 3"], note: "Pure run, no wilds" },
+        { label: "Variant D", parts: ["Run of 4", "Set of 3"], note: "Two pairs variant" },
+      ]
+    },
+    {
+      name: "Game 4",
+      suits: ["♥","♣","♥","♣"],
+      variants: [
+        { label: null,        parts: ["Run of 3", "Run of 4"] },
+        { label: "Variant A", parts: ["Run of 4", "Run of 3"] },
+        { label: "Variant B", parts: ["Run of 3", "Run of 4"] },
+        { label: "Variant C", parts: ["Run of 3", "Run of 3"], note: "Both runs pure" },
+        { label: "Variant D", parts: ["Run of 3", "Run of 3"], note: "Different suits only" },
+      ]
+    },
+    {
+      name: "Game 5",
+      suits: ["♠","♥","♣","♦"],
+      variants: [
+        { label: null,        parts: ["3 aces", "3 of a kind", "Run of 3"] },
+        { label: "Variant A", parts: ["Run of 6", "Set of 3"] },
+        { label: "Variant B", parts: ["Run of 5", "Set of 4"] },
+        { label: "Variant C", parts: ["Run of 5", "Set of 3"], note: "Pure run, no wilds" },
+        { label: "Variant D", parts: ["Run of 5", "Set of 3"], note: "Two sets variant" },
+      ]
+    },
+    {
+      name: "Game 6",
+      suits: ["♦","♠","♦","♠"],
+      variants: [
+        { label: null,        parts: ["Run of 4", "Run of 5"] },
+        { label: "Variant A", parts: ["Set of 4", "Set of 4"] },
+        { label: "Variant B", parts: ["Set of 3", "Set of 5"] },
+        { label: "Variant C", parts: ["Set of 3", "Set of 3"], note: "Pure sets, no wilds" },
+        { label: "Variant D", parts: ["Set of 3", "Set of 3"], note: "Same suit only" },
+      ]
+    },
+    {
+      name: "Game 7",
+      suits: ["♣","♥","♣","♥"],
+      variants: [
+        { label: null,        parts: ["2 runs of 4", "3 of a kind"] },
+        { label: "Variant A", parts: ["Run of 5", "Run of 4"] },
+        { label: "Variant B", parts: ["Run of 4", "Run of 5"] },
+        { label: "Variant C", parts: ["Run of 4", "Run of 4"], note: "Both runs pure" },
+        { label: "Variant D", parts: ["Run of 4", "Run of 4"], note: "Must be same suit" },
+      ]
+    },
+    {
+      name: "Game 8",
+      suits: ["♠","♣","♠","♣"],
+      variants: [
+        { label: null,        parts: ["3 sets of 3 of a kind"] },
+        { label: "Variant A", parts: ["Run of 6", "Run of 3"] },
+        { label: "Variant B", parts: ["Run of 5", "Run of 4"] },
+        { label: "Variant C", parts: ["Run of 5", "Run of 3"], note: "Pure run of 5" },
+        { label: "Variant D", parts: ["Run of 5", "Set of 3"], note: "Swap run for set" },
+      ]
+    },
+    {
+      name: "Game 9",
+      suits: ["♥","♦","♥","♦"],
+      variants: [
+        { label: null,        parts: ["3 aces", "Run of 5"] },
+        { label: "Variant A", parts: ["Set of 4", "Set of 4", "Set of 4"] },
+        { label: "Variant B", parts: ["Set of 3", "Set of 3", "Run of 3"] },
+        { label: "Variant C", parts: ["Set of 3", "Set of 3", "Set of 3"], note: "All pure sets" },
+        { label: "Variant D", parts: ["Set of 3", "Set of 3", "Set of 3"], note: "No wilds at all" },
+      ]
+    },
+    {
+      name: "Game 10",
+      suits: ["♠","♥","♦","♣"],
+      variants: [
+        { label: null,        parts: ["Run of 8", "Run of 3"] },
+        { label: "Variant A", parts: ["Run of 8", "Set of 3"] },
+        { label: "Variant B", parts: ["Run of 7", "Set of 4"] },
+        { label: "Variant C", parts: ["Run of 7", "Set of 3"], note: "No wilds in run" },
+        { label: "Variant D", parts: ["Run of 7", "Run of 3"] },
+      ]
+    },
+    {
+      name: "Game 11",
+      suits: ["♠","♥","♦","♣"],
+      variants: [
+        { label: null,        parts: ["Run of 6", "5 of a kind"] },
+        { label: "Variant A", parts: ["Run of 8", "Set of 3"] },
+        { label: "Variant B", parts: ["Run of 7", "Set of 4"] },
+        { label: "Variant C", parts: ["Run of 7", "Set of 3"], note: "No wilds in run" },
+        { label: "Variant D", parts: ["Run of 7", "Run of 3"] },
+      ]
+    },
+  ];
+
+  const TOTAL_GAMES = GAMES.length;
+  const TOTAL_VARIANTS = 5;
+  const RUN_LETTERS = ['A','B','C','D','E','F','G','H'];
+
+  let currentGame = 0;
+  let currentVariant = 0;
+
+  // ── Helper box builder ──
+  // Returns array of {letter, type} boxes for a single rule string, or null.
+  function parseRule(text) {
+    let m;
+    // "N Aces" or "Aces of N"
+    m = text.match(/(\d+)\s+aces?/i) || text.match(/aces?\s+of\s+(\d+)/i);
+    if (m) {
+      const n = parseInt(m[1]);
+      return Array.from({ length: n }, () => ({ letter: '★', type: 'ace' }));
+    }
+    // "N runs of X" → ABCD · ABCD… (must come before "run of N")
+    m = text.match(/(\d+)\s+runs?\s+of\s+(\d+)/i);
+    if (m) {
+      const numRuns = parseInt(m[1]);
+      const runSize = parseInt(m[2]);
+      const boxes = [];
+      for (let r = 0; r < numRuns; r++) {
+        RUN_LETTERS.slice(0, runSize).forEach(l => boxes.push({ letter: l, type: 'run' }));
+        if (r < numRuns - 1) boxes.push({ letter: '·', type: 'gap' });
+      }
+      return boxes;
+    }
+    // "Run of N"
+    m = text.match(/run of (\d+)/i);
+    if (m) {
+      const n = parseInt(m[1]);
+      return RUN_LETTERS.slice(0, n).map(l => ({ letter: l, type: 'run' }));
+    }
+    // "N sets of X" → BBB CCC DDD… (must come before "set of N")
+    m = text.match(/(\d+)\s+sets?\s+of\s+(\d+)/i);
+    if (m) {
+      const numSets = parseInt(m[1]);
+      const setSize = parseInt(m[2]);
+      const boxes = [];
+      for (let s = 0; s < numSets; s++) {
+        const letter = RUN_LETTERS[s + 1]; // B, C, D…
+        for (let i = 0; i < setSize; i++) boxes.push({ letter, type: 'set' });
+        if (s < numSets - 1) boxes.push({ letter: '·', type: 'gap' });
+      }
+      return boxes;
+    }
+    // "Set of N" / "Trio" / "3 of a kind"
+    m = text.match(/set of (\d+)/i);
+    if (m) {
+      const n = parseInt(m[1]);
+      return Array.from({ length: n }, () => ({ letter: 'A', type: 'set' }));
+    }
+    m = text.match(/trio/i) || text.match(/3 of a kind/i);
+    if (m) {
+      return Array.from({ length: 3 }, () => ({ letter: 'A', type: 'set' }));
+    }
+    m = text.match(/two of a kind/i) || text.match(/pair/i);
+    if (m) {
+      return Array.from({ length: 2 }, () => ({ letter: 'B', type: 'set' }));
+    }
+    // "X of a kind" — generic, any number
+    m = text.match(/(\d+)\s+of\s+a\s+kind/i);
+    if (m) {
+      const n = parseInt(m[1]);
+      return Array.from({ length: n }, () => ({ letter: 'A', type: 'set' }));
+    }
+    return null;
+  }
+
+  // Builds a small inline row of boxes for a single part, or '' if unrecognised
+  function boxRowHTML(text) {
+    const boxes = parseRule(text);
+    if (!boxes || !boxes.length) return '';
+    let html = '<div class="helper-boxes">';
+    boxes.forEach(b => {
+      html += `<div class="hbox ${b.type}-box">${b.letter}</div>`;
+    });
+    html += '</div>';
+    return html;
+  }
+
+  // Wraps all helper rows in the section container
+  function buildHelperHTML(parts) {
+    const rows = parts.map(p => boxRowHTML(p)).filter(Boolean);
+    if (!rows.length) return '';
+    let html = '<div class="helper-section">';
+    rows.forEach(r => {
+      html += `<div class="helper-group">${r}</div>`;
+    });
+    html += '</div>';
+    return html;
+  }
+
+  // Build dots
+  const dotsEl = document.getElementById('gameDots');
+  for (let i = 0; i < TOTAL_GAMES; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => jumpToGame(i);
+    dotsEl.appendChild(d);
+  }
+
+  function updateDots() {
+    document.querySelectorAll('.dot').forEach((d, i) => {
+      d.classList.toggle('active', i === currentGame);
+    });
+  }
+
+  function renderCard(animate) {
+    const card = document.getElementById('card');
+    const inner = document.getElementById('cardInner');
+    const stripe = document.getElementById('variantStripe');
+
+    const game = GAMES[currentGame];
+    const variant = game.variants[currentVariant];
+    const isStandard = currentVariant === 0;
+
+    // Suits
+    const suits = game.suits || ["♠","♥","♦","♣"];
+    document.getElementById('suitTL').textContent = suits[0];
+    document.getElementById('suitTR').textContent = suits[1];
+    document.getElementById('suitBL').textContent = suits[2];
+    document.getElementById('suitBR').textContent = suits[3];
+
+    const doRender = () => {
+      let html = `<div class="game-label">${game.name}</div>`;
+
+      // Variant badge
+      if (!isStandard && variant.label) {
+        html += `<div class="variant-badge visible">${variant.label}</div>`;
+      } else {
+        html += `<div class="variant-badge"></div>`;
+      }
+
+      // Rule text + inline helper boxes per line
+      const p = variant.parts;
+      if (p.length === 1) {
+        html += `<div class="rule-solo">${p[0]}</div>`;
+        html += boxRowHTML(p[0]);
+      } else if (p.length === 2) {
+        html += `<div class="rule-primary">${p[0]}</div>`;
+        html += boxRowHTML(p[0]);
+        html += `<div class="rule-connector">and</div>`;
+        html += `<div class="rule-secondary">${p[1]}</div>`;
+        html += boxRowHTML(p[1]);
+      } else if (p.length === 3) {
+        html += `<div class="rule-primary">${p[0]}</div>`;
+        html += boxRowHTML(p[0]);
+        html += `<div class="rule-connector">·</div>`;
+        html += `<div class="rule-secondary">${p[1]}</div>`;
+        html += boxRowHTML(p[1]);
+        html += `<div class="rule-connector">·</div>`;
+        html += `<div class="rule-secondary">${p[2]}</div>`;
+        html += boxRowHTML(p[2]);
+      }
+
+      if (variant.note) {
+        html += `<div class="rule-note">${variant.note}</div>`;
+      }
+
+      inner.innerHTML = html;
+
+      // Stripe
+      stripe.classList.toggle('visible', !isStandard);
+      card.classList.remove('flipping');
+    };
+
+    if (animate) {
+      card.classList.add('flipping');
+      setTimeout(doRender, 200);
+    } else {
+      doRender();
+    }
+  }
+
+  function updateNav() {
+    document.getElementById('prevBtn').disabled = currentGame === 0;
+    document.getElementById('nextBtn').disabled = currentGame === TOTAL_GAMES - 1;
+    document.getElementById('gameCounter').textContent = `${currentGame + 1} / ${TOTAL_GAMES}`;
+    document.getElementById('resetBtn').disabled = currentVariant === 0;
+  }
+
+  function changeGame(dir) {
+    const next = currentGame + dir;
+    if (next < 0 || next >= TOTAL_GAMES) return;
+    currentGame = next;
+    currentVariant = 0;
+    updateDots();
+    updateNav();
+    renderCard(true);
+  }
+
+  function jumpToGame(index) {
+    if (index === currentGame) return;
+    currentGame = index;
+    currentVariant = 0;
+    updateDots();
+    updateNav();
+    renderCard(true);
+  }
+
+  function shuffleVariant() {
+    const available = [];
+    const variantCount = GAMES[currentGame].variants.length;
+    for (let i = 1; i < variantCount; i++) {
+      if (i !== currentVariant) available.push(i);
+    }
+    currentVariant = available[Math.floor(Math.random() * available.length)];
+    updateNav();
+    renderCard(true);
+  }
+
+  function resetToStandard() {
+    if (currentVariant === 0) return;
+    currentVariant = 0;
+    updateNav();
+    renderCard(true);
+  }
+
+  // Touch swipe
+  let touchStartX = 0;
+  const cardWrap = document.querySelector('.card-wrap');
+  cardWrap.addEventListener('touchstart', e => { touchStartX = e.changedTouches[0].clientX; }, { passive: true });
+  cardWrap.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - touchStartX;
+    if (Math.abs(dx) > 50) changeGame(dx < 0 ? 1 : -1);
+  }, { passive: true });
+
+  // Init
+  updateNav();
+  renderCard(false);
+</script>
+</body>
+</html>
