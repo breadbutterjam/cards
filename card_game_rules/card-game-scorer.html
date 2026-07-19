@@ -585,6 +585,8 @@ document.getElementById('btnNextRound').addEventListener('click', ()=>{
   updateNextRoundButton();
 });
 
+
+
 // ============================================================
 //  EDIT PLAYER MODAL
 // ============================================================
@@ -869,6 +871,11 @@ setTimeout(renderSetupField, 50);
 // Show game mode picker immediately on load
 document.getElementById('modeModalOverlay').classList.add('open');
 window.addEventListener('resize', ()=>{ if(!gameStarted)renderSetupField(); else renderGameField(); });
+window.addEventListener('beforeunload', (event) => {
+  // Modern browsers handle the prompt automatically if you prevent default
+  event.preventDefault(); 
+  event.returnValue = ''; // Required for historical browser support
+});
 </script>
 </body>
 </html>
