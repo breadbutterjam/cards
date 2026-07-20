@@ -47,10 +47,12 @@
   .crown { font-size: 14px; line-height: 1; }
 
   /* Super 11 score badge */
-  .score-badge { min-width: 42px; padding: 3px 7px; border-radius: 8px; background: white; border: 1.5px solid #e0eaf2; font-size: 12px; font-weight: 800; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.07); }
-  .score-badge.positive { color: var(--green); }
-  .score-badge.negative { color: var(--red); }
-  .score-badge.zero { color: var(--green); }
+  .score-badge-wrap { display: flex; flex-direction: column; align-items: center; min-width: 46px; padding: 3px 8px; border-radius: 9px; background: white; border: 1.5px solid #e0eaf2; box-shadow: 0 2px 6px rgba(0,0,0,0.07); }
+  .score-badge-wrap .sb-total { font-size: 13px; font-weight: 900; line-height: 1.2; }
+  .score-badge-wrap .sb-total.positive { color: var(--green); }
+  .score-badge-wrap .sb-total.negative { color: var(--red); }
+  .score-badge-wrap .sb-total.zero { color: var(--green); }
+  .score-badge-wrap .sb-round { font-size: 10px; font-weight: 700; color: var(--text-muted); line-height: 1.2; }
 
   /* Phase 10 badge */
   .phase-badge { display: flex; flex-direction: column; align-items: center; background: white; border: 1.5px solid #e0eaf2; border-radius: 9px; padding: 3px 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.07); min-width: 54px; }
@@ -143,8 +145,14 @@
   /* History */
   .history-list { margin-top: 14px; border-top: 2px solid #f0f4f8; padding-top: 12px; }
   .history-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
-  .history-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f0f4f8; font-size: 13px; }
+  .history-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; border-bottom: 1px solid #f0f4f8; font-size: 13px; cursor: pointer; border-radius: 8px; transition: background 0.12s; }
   .history-item:last-child { border-bottom: none; }
+  .history-item:active { background: #eef4f8; }
+  .history-item.active { background: var(--purple-light); }
+  .history-item.active .history-game { color: var(--purple); }
+
+  .round-edit-indicator { display: none; align-items: center; justify-content: space-between; background: var(--purple-light); border: 1.5px solid #d8c9f5; border-radius: 10px; padding: 8px 12px; margin-bottom: 14px; font-size: 12px; font-weight: 800; color: var(--purple); }
+  .round-edit-indicator button { background: none; border: none; color: var(--purple); font-weight: 800; font-size: 12px; text-decoration: underline; cursor: pointer; font-family: 'Nunito', sans-serif; }
   .history-game { font-weight: 700; color: var(--text-muted); }
   .history-detail { display: flex; align-items: center; gap: 6px; }
   .history-score { font-weight: 800; }
@@ -191,6 +199,7 @@
 
 <!-- GAME SCREEN -->
 <div class="screen" id="screenGame">
+  <button type="button" id="btnNewGame" style="align-self:flex-end;background:none;border:none;color:var(--text-muted);font-size:11px;font-weight:800;text-decoration:underline;cursor:pointer;font-family:'Nunito',sans-serif;margin-bottom:6px;">↺ New Game</button>
   <div class="game-title" id="gameTitle">Round 1</div>
   <div class="field-wrap" id="gameField">
     <div class="oval"></div>
@@ -256,6 +265,11 @@
         <div class="panel-pname" id="panelName">Player</div>
         <div class="panel-ptotal" id="panelTotal">Total: 0</div>
       </div>
+    </div>
+
+    <div class="round-edit-indicator" id="roundEditIndicator">
+      <span id="roundEditText"></span>
+      <button type="button" id="btnBackToCurrent">Back to current</button>
     </div>
 
     <!-- Super 11 -->
@@ -343,6 +357,7 @@ let currentRound = 0;
 let gameStarted  = false;
 let editingPlayerIdx = null;
 let scoringPlayerIdx = null;
+let panelRoundIdx    = 0; // which round the score panel is currently showing/editing
 let s11RoundScored = []; // s11RoundScored[round][player] = true/false
 
 // Super 11: gameRounds[round][player] = { raw, isWinner }
@@ -374,6 +389,60 @@ function ovalMetrics(el) {
   const W = el.offsetWidth || 340, H = el.offsetHeight || 440;
   const ow = W * 0.72;
   return { cx: W/2, cy: H/2, rx: ow/2*0.88, ry: ow*(4/3)/2*0.88 };
+}
+
+// ============================================================
+//  AUTO-SAVE (localStorage)
+// ============================================================
+const STORAGE_KEY = 'cardGameScorerState_v1';
+
+function saveState() {
+  const state = {
+    v: 1,
+    playerCount, gameMode, selectedMode,
+    players, gameStarted, currentRound,
+    s11RoundScored, gameRounds, p10Rounds
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (err) {
+    // Most likely quota exceeded because of large player photos —
+    // retry without photos so the score data itself isn't lost.
+    try {
+      const lightState = { ...state, players: players.map(p => ({ ...p, photo: null })) };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(lightState));
+    } catch (err2) {
+      console.warn('Auto-save failed:', err2);
+    }
+  }
+}
+
+function clearSavedState() {
+  try { localStorage.removeItem(STORAGE_KEY); } catch (err) {}
+}
+
+function loadState() {
+  let raw;
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch (err) { return false; }
+  if (!raw) return false;
+  let state;
+  try { state = JSON.parse(raw); } catch (err) { return false; }
+  if (!state || typeof state !== 'object' || !Array.isArray(state.players) || !state.players.length) return false;
+
+  playerCount    = state.playerCount || state.players.length || 4;
+  gameMode       = state.gameMode === 'phase10' ? 'phase10' : 'super11';
+  selectedMode   = state.selectedMode === 'phase10' ? 'phase10' : 'super11';
+  players        = state.players;
+  gameStarted    = !!state.gameStarted;
+  currentRound   = Number.isInteger(state.currentRound) ? state.currentRound : 0;
+  s11RoundScored = Array.isArray(state.s11RoundScored) ? state.s11RoundScored : [];
+  gameRounds     = Array.isArray(state.gameRounds) ? state.gameRounds : [];
+  p10Rounds      = Array.isArray(state.p10Rounds) ? state.p10Rounds : [];
+
+  initPlayers(playerCount);
+  if (gameMode === 'phase10') recomputeP10State();
+
+  return true;
 }
 
 // ============================================================
@@ -412,12 +481,17 @@ function renderSuper11Field() {
     slot.className = 'player-slot';
     slot.style.cssText = `left:${cx+p.x*rx}px;top:${cy+p.y*ry}px;transform:translate(-50%,-50%)`;
     const sc = t>0?'positive':t<0?'negative':'zero';
+    const roundScore = computeS11Score(currentRound, i);
+    const roundLabel = roundScore===null ? 'Rd –' : `Rd ${roundScore>0?'+':''}${roundScore}`;
     slot.innerHTML = `
       ${hasAny?`<div class="rank-info">${r===1?'<span class="crown">👑</span>':''}<span class="rank-badge">#${r}</span></div>`:''}
       <div style="display:flex;align-items:center;gap:4px;">${s11RoundScored[currentRound]?.[i] ? '<span style="color:var(--green);font-size:12px;">✔</span>' : ''}<div class="player-name">${pl.name}</div>
       </div>
       <div class="player-avatar">${pl.photo?`<img src="${pl.photo}">`:avatarSVG()}</div>
-      <div class="score-badge ${sc}">${t}</div>`;
+      <div class="score-badge-wrap">
+        <div class="sb-total ${sc}">${t>0?'+':''}${t}</div>
+        <div class="sb-round">${roundLabel}</div>
+      </div>`;
     slot.addEventListener('click', () => openScorePanel(i));
     field.appendChild(slot);
   });
@@ -517,6 +591,7 @@ function update() {
   document.getElementById('playerCountDisplay').textContent = playerCount;
   initPlayers(playerCount);
   if(!gameStarted) renderSetupField(); else renderGameField();
+  saveState();
 }
 
 // ============================================================
@@ -536,6 +611,7 @@ function selectMode(m) {
 document.getElementById('btnConfirmMode').addEventListener('click', ()=>{
   gameMode = selectedMode;
   document.getElementById('modeModalOverlay').classList.remove('open');
+  saveState();
 });
 
 // ============================================================
@@ -567,6 +643,7 @@ function launchGame() {
 
   updateTitle();
   setTimeout(renderGameField, 50);
+  saveState();
 }
 
 function updateTitle() {
@@ -583,6 +660,7 @@ document.getElementById('btnNextRound').addEventListener('click', ()=>{
   updateTitle();
   renderGameField();
   updateNextRoundButton();
+  saveState();
 });
 
 
@@ -633,6 +711,7 @@ document.getElementById('btnCameraSnap').addEventListener('click', ()=>{
   players[editingPlayerIdx].photo=url;
   document.getElementById('photoPreview').innerHTML=`<img src="${url}">`;
   stopCamera();
+  saveState();
 });
 
 document.getElementById('btnCameraCancel').addEventListener('click', stopCamera);
@@ -649,6 +728,7 @@ document.getElementById('fileInput').addEventListener('change', e=>{
   reader.onload=ev=>{
     players[editingPlayerIdx].photo=ev.target.result;
     document.getElementById('photoPreview').innerHTML=`<img src="${ev.target.result}">`;
+    saveState();
   };
   reader.readAsDataURL(file);
 });
@@ -657,7 +737,9 @@ document.getElementById('fileInput').addEventListener('change', e=>{
 //  SCORE PANEL — open
 // ============================================================
 function openScorePanel(idx) {
+  // console.log('openScorePanel', idx);
   scoringPlayerIdx = idx;
+  panelRoundIdx = currentRound;
   const p = players[idx];
   const av = document.getElementById('panelAvatar');
   av.innerHTML = p.photo?`<img src="${p.photo}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">`:avatarSVG();
@@ -668,7 +750,7 @@ function openScorePanel(idx) {
     document.getElementById('panelPhase10').style.display='none';
     const total=getS11Total(idx);
     document.getElementById('panelTotal').textContent=`Total: ${total>=0?'+':''}${total}`;
-    const ex=getEntry(currentRound,idx);
+    const ex=getEntry(panelRoundIdx,idx);
     const tog=document.getElementById('winnerToggle');
     tog.checked = ex?ex.isWinner:false;
     document.getElementById('scoreInput').value = ex&&!ex.isWinner?ex.raw:'';
@@ -680,7 +762,7 @@ function openScorePanel(idx) {
     const st=p10State[idx];
     document.getElementById('panelTotal').textContent=`Total: ${st.totalScore} pts · Phase ${st.currentPhase}${st.done?' ✅':''}`;
     document.getElementById('phaseDisplay').textContent = st.done ? '✓' : st.currentPhase;
-    const ex=getP10Entry(currentRound,idx);
+    const ex=getP10Entry(panelRoundIdx,idx);
     document.getElementById('scoreInputP10').value = ex?ex.score:'';
     document.getElementById('phaseCompletedToggle').checked = ex?ex.completed:false;
     // Disable if player is already done
@@ -690,6 +772,7 @@ function openScorePanel(idx) {
     updateP10Mode();
     renderHistoryP10(idx);
   }
+  updateRoundIndicator();
   document.getElementById('panelOverlay').classList.add('open');
   // Auto-focus the score field
   setTimeout(() => {
@@ -710,13 +793,13 @@ function updateS11Mode() {
   const lO=document.getElementById('lblOthers'), lW=document.getElementById('lblWinner');
   if(isW) {
     inp.className='score-input m-winner';
-    let sum=0; getRound(currentRound).forEach((e,i)=>{if(i!==scoringPlayerIdx&&e)sum+=e.raw;});
+    let sum=0; getRound(panelRoundIdx).forEach((e,i)=>{if(i!==scoringPlayerIdx&&e)sum+=e.raw;});
     inp.value=sum; inp.readOnly=true; inp.style.opacity='0.7';
     lW.classList.add('active-cyan'); lO.classList.remove('active-cyan');
   } else {
     inp.className='score-input m-others';
     inp.readOnly=false; inp.style.opacity='1';
-    const ex=getEntry(currentRound,scoringPlayerIdx);
+    const ex=getEntry(panelRoundIdx,scoringPlayerIdx);
     if(ex&&!ex.isWinner) inp.value=ex.raw||'';
     lO.classList.add('active-cyan'); lW.classList.remove('active-cyan');
   }
@@ -724,22 +807,42 @@ function updateS11Mode() {
 
 document.getElementById('btnAddScore').addEventListener('click', ()=>{
   const isW=document.getElementById('winnerToggle').checked, idx=scoringPlayerIdx;
-  
-  if (!s11RoundScored[currentRound]) s11RoundScored[currentRound] = [];
-  
+  const round = panelRoundIdx;
+  const isLiveRound = round === currentRound;
+
+  if (!s11RoundScored[round]) s11RoundScored[round] = [];
+
   if(isW) {
-    setEntry(currentRound,idx,0,true);
-    s11RoundScored[currentRound][idx] = true; // ✅ mark scored
-    document.getElementById('gameHint').style.display='none';
-    closePanel(); renderGameField(); launchConfetti(); updateNextRoundButton();
+    setEntry(round,idx,0,true);
+    s11RoundScored[round][idx] = true; // ✅ mark scored
   } else {
     const val=Math.abs(parseInt(document.getElementById('scoreInput').value)||0);
-    setEntry(currentRound,idx,val,false);
-    s11RoundScored[currentRound][idx] = true; // ✅ mark scored
-    document.getElementById('gameHint').style.display='none';
-    closePanel(); renderGameField(); updateNextRoundButton();
+    setEntry(round,idx,val,false);
+    s11RoundScored[round][idx] = true; // ✅ mark scored
   }
+
+  document.getElementById('gameHint').style.display='none';
+  renderGameField();
+  if (isW) launchConfetti();
+  updateNextRoundButton();
+  saveState();
+
+  // Auto-advance to the next un-scored player, but only while scoring the live round
+  if (isLiveRound) {
+    const next = findNextUnscoredS11(idx);
+    if (next !== null) { openScorePanel(next); return; }
+  }
+  closePanel();
 });
+
+function findNextUnscoredS11(fromIdx) {
+  const scored = s11RoundScored[currentRound] || [];
+  for (let step=1; step<=playerCount; step++) {
+    const i = (fromIdx+step) % playerCount;
+    if (!scored[i]) return i;
+  }
+  return null;
+}
 
 function renderHistoryS11(idx) {
   const rows=[];
@@ -747,9 +850,24 @@ function renderHistoryS11(idx) {
     const e=getEntry(g,idx); if(!e) continue;
     const s=computeS11Score(g,idx);
     const cls=s>0?'hs-pos':s<0?'hs-neg':'hs-zero';
-    rows.push(`<div class="history-item"><span class="history-game">Game ${g+1}${e.isWinner?' 👑':''}</span><span class="history-score ${cls}">${s>0?'+':''}${s}</span></div>`);
+    const activeCls = g===panelRoundIdx ? ' active' : '';
+    rows.push(`<div class="history-item${activeCls}" data-round="${g}"><span class="history-game">Game ${g+1}${e.isWinner?' 👑':''}</span><span class="history-score ${cls}">${s>0?'+':''}${s}</span></div>`);
   }
-  document.getElementById('historyList').innerHTML = rows.length?`<div class="history-title">Score History</div>${rows.join('')}`:'';
+  document.getElementById('historyList').innerHTML = rows.length?`<div class="history-title">Score History (tap to edit)</div>${rows.join('')}`:'';
+  document.getElementById('historyList').querySelectorAll('.history-item').forEach(el=>{
+    el.addEventListener('click', ()=> selectRoundToEditS11(parseInt(el.dataset.round,10)));
+  });
+}
+
+function selectRoundToEditS11(g) {
+  panelRoundIdx = g;
+  const idx = scoringPlayerIdx;
+  const ex = getEntry(g, idx);
+  document.getElementById('winnerToggle').checked = ex ? ex.isWinner : false;
+  document.getElementById('scoreInput').value = ex && !ex.isWinner ? ex.raw : '';
+  updateS11Mode();
+  renderHistoryS11(idx);
+  updateRoundIndicator();
 }
 
 // ============================================================
@@ -759,31 +877,47 @@ document.getElementById('phaseCompletedToggle').addEventListener('change', updat
 function updateP10Mode() {
   const done = document.getElementById('phaseCompletedToggle').checked;
   const lN = document.getElementById('lblNo'), lY = document.getElementById('lblYes');
+  const isLiveRound = panelRoundIdx === currentRound;
   if (done) {
     lY.classList.add('active-purple'); lN.classList.remove('active-cyan');
     // Preview: show what phase they'll be on after completing
-    const st = p10State[scoringPlayerIdx];
-    if (!st.done) {
-      const next = st.currentPhase >= 10 ? '✓' : st.currentPhase + 1;
-      document.getElementById('phaseDisplay').textContent = next;
+    if (isLiveRound) {
+      const st = p10State[scoringPlayerIdx];
+      if (!st.done) {
+        const next = st.currentPhase >= 10 ? '✓' : st.currentPhase + 1;
+        document.getElementById('phaseDisplay').textContent = next;
+      }
+    } else {
+      const ex = getP10Entry(panelRoundIdx, scoringPlayerIdx);
+      const base = ex ? ex.phaseAtStart : 1;
+      document.getElementById('phaseDisplay').textContent = base >= 10 ? '✓' : base + 1;
     }
   } else {
     lN.classList.add('active-cyan'); lY.classList.remove('active-purple');
-    // Revert to current phase
-    const st = p10State[scoringPlayerIdx];
-    document.getElementById('phaseDisplay').textContent = st.done ? '✓' : st.currentPhase;
+    if (isLiveRound) {
+      // Revert to current phase
+      const st = p10State[scoringPlayerIdx];
+      document.getElementById('phaseDisplay').textContent = st.done ? '✓' : st.currentPhase;
+    } else {
+      const ex = getP10Entry(panelRoundIdx, scoringPlayerIdx);
+      document.getElementById('phaseDisplay').textContent = ex ? ex.phaseAtStart : 1;
+    }
   }
 }
 
 document.getElementById('btnAddScoreP10').addEventListener('click', ()=>{
   const idx=scoringPlayerIdx;
+  const round=panelRoundIdx;
   const score=Math.abs(parseInt(document.getElementById('scoreInputP10').value)||0);
   const completed=document.getElementById('phaseCompletedToggle').checked;
-  const phaseAtStart=p10State[idx].currentPhase;
-  setP10Entry(currentRound,idx,{score,phaseAtStart,completed});
+  const existing = getP10Entry(round, idx);
+  // Preserve the original phaseAtStart when editing a past round; only derive it fresh for a new live entry
+  const phaseAtStart = existing ? existing.phaseAtStart : p10State[idx].currentPhase;
+  setP10Entry(round,idx,{score,phaseAtStart,completed});
   recomputeP10State();
   document.getElementById('gameHint').style.display='none';
   closePanel(); renderGameField();
+  saveState();
   const w=checkP10GameOver();
   if(w!==null) setTimeout(()=>showWinnerBanner(w),300);
 });
@@ -792,19 +926,56 @@ function renderHistoryP10(idx) {
   const rows=[];
   for(let g=0;g<=currentRound;g++){
     const e=getP10Entry(g,idx); if(!e) continue;
-    rows.push(`<div class="history-item">
+    const activeCls = g===panelRoundIdx ? ' active' : '';
+    rows.push(`<div class="history-item${activeCls}" data-round="${g}">
       <span class="history-game">Round ${g+1}${e.completed?' ✅':''}</span>
       <div class="history-detail"><span class="ph-tag">Ph ${e.phaseAtStart}</span><span class="history-score hs-purple">+${e.score}</span></div>
     </div>`);
   }
-  document.getElementById('historyList').innerHTML = rows.length?`<div class="history-title">Round History</div>${rows.join('')}`:'';
+  document.getElementById('historyList').innerHTML = rows.length?`<div class="history-title">Round History (tap to edit)</div>${rows.join('')}`:'';
+  document.getElementById('historyList').querySelectorAll('.history-item').forEach(el=>{
+    el.addEventListener('click', ()=> selectRoundToEditP10(parseInt(el.dataset.round,10)));
+  });
+}
+
+function selectRoundToEditP10(g) {
+  panelRoundIdx = g;
+  const idx = scoringPlayerIdx;
+  const ex = getP10Entry(g, idx);
+  document.getElementById('scoreInputP10').value = ex ? ex.score : '';
+  document.getElementById('phaseCompletedToggle').checked = ex ? ex.completed : false;
+  // Only disable for the live round if the player has already finished the game;
+  // past rounds stay editable even after the player is done.
+  const disable = g===currentRound && p10State[idx].done;
+  document.getElementById('scoreInputP10').disabled = disable;
+  document.getElementById('btnAddScoreP10').disabled = disable;
+  document.getElementById('phaseCompletedToggle').disabled = disable;
+  updateP10Mode();
+  renderHistoryP10(idx);
+  updateRoundIndicator();
 }
 
 // ============================================================
 //  CLOSE PANEL
 // ============================================================
-function closePanel(){ document.getElementById('panelOverlay').classList.remove('open'); }
+function closePanel(){ document.getElementById('panelOverlay').classList.remove('open'); panelRoundIdx = currentRound; }
 document.getElementById('panelOverlay').addEventListener('click', e=>{ if(e.target===document.getElementById('panelOverlay'))closePanel(); });
+
+function updateRoundIndicator() {
+  const el = document.getElementById('roundEditIndicator');
+  if (panelRoundIdx === currentRound) {
+    el.style.display = 'none';
+  } else {
+    el.style.display = 'flex';
+    const label = gameMode === 'phase10' ? 'Round' : 'Game';
+    document.getElementById('roundEditText').textContent = `Editing ${label} ${panelRoundIdx+1}`;
+  }
+}
+
+document.getElementById('btnBackToCurrent').addEventListener('click', ()=>{
+  if (gameMode==='super11') selectRoundToEditS11(currentRound);
+  else selectRoundToEditP10(currentRound);
+});
 
 // ============================================================
 //  WINNER BANNER
@@ -864,14 +1035,55 @@ function updateNextRoundButton() {
 
 
 // ============================================================
+//  NEW GAME (clears saved data and starts over)
+// ============================================================
+document.getElementById('btnNewGame').addEventListener('click', ()=>{
+  if (confirm('Start a new game? This clears the current game and its saved data.')) {
+    clearSavedState();
+    location.reload();
+  }
+});
+
+// ============================================================
 //  INIT
 // ============================================================
-initPlayers(playerCount);
-setTimeout(renderSetupField, 50);
-// Show game mode picker immediately on load
-document.getElementById('modeModalOverlay').classList.add('open');
+const restored = loadState();
+
+if (restored && gameStarted) {
+  // Resume an in-progress game exactly where it left off
+  panelRoundIdx = currentRound;
+  document.getElementById('screenSetup').classList.remove('active');
+  document.getElementById('screenGame').classList.add('active');
+  document.getElementById('btnNextRound').textContent = gameMode==='phase10' ? 'Next Round' : 'Next Game';
+
+  const hasAnyScored = gameMode==='phase10'
+    ? p10Rounds.some(r => r && r.some(Boolean))
+    : gameRounds.some(r => r && r.some(Boolean));
+  const hintText = gameMode === 'phase10'
+    ? 'Tap a player icon to add<br>scores &amp; mark phase completed'
+    : 'Tap a player icon to add<br>scores &amp; mark the winner';
+  document.getElementById('gameHintText').innerHTML = hintText;
+  document.getElementById('gameHint').style.display = hasAnyScored ? 'none' : '';
+
+  updateTitle();
+  updateNextRoundButton();
+  setTimeout(renderGameField, 50);
+} else if (restored) {
+  // Setup was in progress (players/photos saved) — let them confirm the mode again
+  document.getElementById('playerCountDisplay').textContent = playerCount;
+  selectMode(selectedMode);
+  setTimeout(renderSetupField, 50);
+  document.getElementById('modeModalOverlay').classList.add('open');
+} else {
+  initPlayers(playerCount);
+  setTimeout(renderSetupField, 50);
+  // Show game mode picker immediately on load
+  document.getElementById('modeModalOverlay').classList.add('open');
+}
+
 window.addEventListener('resize', ()=>{ if(!gameStarted)renderSetupField(); else renderGameField(); });
 window.addEventListener('beforeunload', (event) => {
+  saveState();
   // Modern browsers handle the prompt automatically if you prevent default
   event.preventDefault(); 
   event.returnValue = ''; // Required for historical browser support
