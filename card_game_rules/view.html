@@ -27,7 +27,7 @@
   const tableEl = document.getElementById('liveTable');
 
   function computeScore(gameRounds, g, i) {
-    const round = gameRounds[g] || [];
+    const round = (gameRounds[g] && gameRounds[g].entries) || [];
     const e = round[i];
     if (!e) return null;
     if (e.isWinner) {
@@ -74,7 +74,7 @@
     for (let g = 0; g <= currentRound && g < gameRounds.length; g++) {
       tableHtml += `<tr><td>${g + 1}</td>`;
       players.forEach((p, i) => {
-        const e = (gameRounds[g] || [])[i];
+        const e = ((gameRounds[g] && gameRounds[g].entries) || [])[i];
         if (!e) { tableHtml += `<td class="sb-cell hs-zero">–</td>`; return; }
         const s = computeScore(gameRounds, g, i);
         const cls = s > 0 ? 'hs-pos' : s < 0 ? 'hs-neg' : 'hs-zero';
